@@ -1,0 +1,13 @@
+__pycache__/
+*.pyc
+.venv/
+venv/
+node_modules/
+web/dist/
+data/
+.env
+*.log
+certs/
+keycloak/target/
+app/verify.db
+*.db
