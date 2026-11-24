@@ -22,12 +22,14 @@ from schemas import (
     WebhookBody,
 )
 from store import Outbox, RateLimiter, Store, new_key
+from profile import init_profile, router as profile_router
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
 log = logging.getLogger("flashcall")
 
 store = Store(settings.DB_PATH)
 outbox = Outbox(settings.DB_PATH)
+init_profile(store)
 plusofon = PlusofonClient()
 rate_limiter = RateLimiter(settings.RATE_LIMIT_N, settings.RATE_LIMIT_WINDOW)
 
@@ -39,6 +41,8 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+app.include_router(profile_router)
 
 
 def require_api_key(x_api_key: str | None = Header(default=None)) -> None:

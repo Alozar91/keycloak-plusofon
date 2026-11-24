@@ -37,6 +37,44 @@ body {
   text-align: center;
 }
 
+.card.wide { max-width: 640px; text-align: left; }
+
+.row.head { display: flex; justify-content: space-between; align-items: baseline; }
+.row.head h1 { margin: 0; }
+
+section { margin-top: 22px; padding-top: 18px; border-top: 1px solid #e4ebf2; }
+section h2 { font-size: 15px; margin: 0 0 10px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.5px; }
+
+ul.logins { list-style: none; margin: 0; padding: 0; }
+ul.logins li {
+  display: flex; align-items: center; gap: 10px;
+  padding: 10px 0; border-bottom: 1px dashed #e4ebf2;
+}
+ul.logins li:last-child { border-bottom: none; }
+ul.logins .on { color: var(--ok); font-weight: 700; }
+ul.logins .off { color: var(--muted); }
+ul.logins .muted { color: var(--muted); font-size: 13px; flex: 1; text-align: right; }
+ul.logins button { width: auto; margin: 0; padding: 7px 14px; font-size: 13px; }
+button.danger { background: #fdecea; color: var(--err); }
+button.danger:hover { background: #f9d9d6; }
+
+.notice {
+  background: #e5f3e6; color: var(--ok);
+  border-radius: 8px; padding: 10px 14px; font-size: 13px;
+}
+
+.outbox {
+  margin-top: 10px; padding: 10px 14px;
+  background: #f4f7fa; border-radius: 8px; font-size: 13px;
+}
+.outbox p { margin: 4px 0; }
+
+.btn-link {
+  display: inline-block; margin-top: 10px;
+  color: var(--accent); text-decoration: none; font-weight: 600;
+}
+.btn-link:hover { text-decoration: underline; }
+
 h1 { margin: 0 0 4px; font-size: 24px; }
 .subtitle { margin: 0 0 24px; color: var(--muted); font-size: 13px; }
 

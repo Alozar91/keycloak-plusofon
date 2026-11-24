@@ -35,6 +35,10 @@ class Settings(BaseSettings):
     DEV_MAIL: bool = True  # перехватывать письма Keycloak и класть ссылки в dev-outbox
     DEV_MAIL_PORT: int = 1025  # SMTP-порт заглушки (Keycloak шлёт на app:1025)
 
+    # --- профиль на фронте (OIDC-клиент web-profile) ---
+    KC_PUBLIC_BASE_URL: str = "https://merch-vibe.ru:8443"  # issuer, видимый браузеру
+    KC_PUBLIC_FRONTEND: str = "https://merch-vibe.ru:4443"  # адрес фронтенда
+
     # --- синхронизация пользователей в Keycloak ---
     KC_SYNC: bool = True  # создавать пользователя в realm после verified
     KC_BASE_URL: str = "http://keycloak:8080"  # из docker-сети

@@ -54,9 +54,20 @@ print("== 1. админ-токен получен ==")
 A = BASE + "/admin/realms"
 
 # 2. пересоздаём realm
+#    editUsernameAllowed — смена username через Account API/профиль
+#    verifyEmail + smtp — письма уходят в dev-mail заглушку (app:1025),
+#    ссылки видны на фронте через GET /api/dev/outbox
+#    registrationAllowed — самостоятельная регистрация username+password
 code, _ = req(f"{A}/{REALM}", "DELETE", token=token)
-code, body = req(A, "POST", {"realm": REALM, "enabled": True, "registrationAllowed": False,
-                             "loginWithEmailAllowed": False, "resetPasswordAllowed": False,
+code, body = req(A, "POST", {"realm": REALM, "enabled": True,
+                             "registrationAllowed": True,
+                             "loginWithEmailAllowed": True,
+                             "editUsernameAllowed": True,
+                             "resetPasswordAllowed": True,
+                             "verifyEmail": True,
+                             "smtpServer": {"host": "app", "port": "1025",
+                                            "from": "kc@merch-vibe.ru",
+                                            "ssl": "", "starttls": "", "auth": ""},
                              "sslRequired": "external"}, token=token)
 print(f"== 2. create realm: {code} ==")
 if code != 201: sys.exit(body)
@@ -111,6 +122,30 @@ code, realm = req(f"{A}/{REALM}", token=token)
 realm = json.loads(realm); realm["browserFlow"] = FLOW
 code, _ = req(f"{A}/{REALM}", "PUT", realm, token=token)
 print(f"== 5. browserFlow={FLOW}: {code} ==")
+
+# 5b. публичный OIDC-клиент web-profile для страницы профиля на фронте
+#     (Authorization Code + PKCE; токены проверяет backend через JWKS)
+BASIC_SCOPE = next(s["id"] for s in
+                   json.loads(req(f"{A}/{REALM}/client-scopes", token=token)[1])
+                   if s["name"] == "basic")
+code, body = req(f"{A}/{REALM}/clients", "POST", {
+    "clientId": "web-profile", "enabled": True,
+    "publicClient": True, "standardFlowEnabled": True,
+    "directAccessGrantsEnabled": False,
+    "redirectUris": ["https://merch-vibe.ru:4443/profile",
+                     "http://localhost:3000/profile",
+                     "http://localhost:5173/profile"],
+    "webOrigins": ["https://merch-vibe.ru:4443", "http://localhost:3000",
+                   "http://localhost:5173"],
+    "defaultClientScopes": ["profile", "email", "openid"],
+    "attributes": {"pkce.code.challenge.method": "S256"},
+}, token=token)
+print(f"== 5b. client web-profile: {code} ==")
+if code != 201: sys.exit(body)
+wpid = json.loads(req(f"{A}/{REALM}/clients?clientId=web-profile", token=token)[1])[0]["id"]
+# scope "basic" добавляет sub в access token (в KC 26 без него sub пропадает)
+code, _ = req(f"{A}/{REALM}/clients/{wpid}/default-client-scopes/{BASIC_SCOPE}", "PUT", token=token)
+print(f"   + default scope basic: {code}")
 
 # 6. итог
 ex = json.loads(req(f"{A}/{REALM}/authentication/flows/{FLOW}/executions", token=token)[1])
