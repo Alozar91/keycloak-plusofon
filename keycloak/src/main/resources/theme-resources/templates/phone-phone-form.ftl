@@ -8,7 +8,7 @@
             <div class="${properties.kcFormGroupClass!}">
                 <label for="phone" class="${properties.kcLabelClass!}">Номер телефона</label>
                 <input id="phone" name="phone" type="tel" required autofocus
-                       placeholder="+7 999 000-00-00" autocomplete="tel"
+                       placeholder="+7 999 000-00-00" autocomplete="off"
                        class="${properties.kcInputClass!}" />
             </div>
             <div class="${properties.kcFormGroupClass!}">
