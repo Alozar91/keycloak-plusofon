@@ -1,6 +1,8 @@
 services:
   app:
     build: ./app
+    depends_on:
+      - keycloak
     environment:
       MOCK: ${MOCK:-1}
       API_KEY: ${API_KEY:-}
@@ -9,6 +11,11 @@ services:
       PLUSOFON_FC_ACCOUNT_TOKEN: ${PLUSOFON_FC_ACCOUNT_TOKEN:-}
       WEBHOOK_IPS: ${WEBHOOK_IPS:-185.54.48.1}
       MOCK_CALL_NUMBER: ${MOCK_CALL_NUMBER:-88003330999}
+      KC_SYNC: ${KC_SYNC:-1}
+      KC_BASE_URL: http://keycloak:8080
+      KC_REALM: ${KC_REALM:-plusofon-test}
+      KC_ADMIN_USER: ${KEYCLOAK_ADMIN:-admin}
+      KC_ADMIN_PASSWORD: ${KEYCLOAK_ADMIN_PASSWORD:-admin}
     volumes:
       - ./data:/data
     ports:

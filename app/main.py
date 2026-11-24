@@ -10,6 +10,7 @@ from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
 
 from config import CORS_ORIGINS, WEBHOOK_IPS, settings
+from kcsync import sync_user_safe
 from plusofon import PlusofonClient, PlusofonError
 from schemas import (
     SimulateRequest,
@@ -195,6 +196,7 @@ async def plusofon_webhook(request: Request):
 
     store.mark_verified(v.id)
     log.info("verification completed: id=%s phone=%s", v.id, mask_phone(v.phone))
+    await sync_user_safe(v.phone)
     return {"success": True}
 
 
@@ -220,6 +222,7 @@ async def simulate_call(req: SimulateRequest, _: None = Depends(require_api_key)
 
     store.mark_verified(v.id)
     log.info("simulated call: id=%s phone=%s", v.id, mask_phone(v.phone))
+    await sync_user_safe(v.phone)
     return {"success": True, "verification_id": v.id, "status": "verified"}
 
 

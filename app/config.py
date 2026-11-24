@@ -31,6 +31,13 @@ class Settings(BaseSettings):
     # --- mock ---
     MOCK_CALL_NUMBER: str = "88003330999"
 
+    # --- синхронизация пользователей в Keycloak ---
+    KC_SYNC: bool = True  # создавать пользователя в realm после verified
+    KC_BASE_URL: str = "http://keycloak:8080"  # из docker-сети
+    KC_REALM: str = "plusofon-test"
+    KC_ADMIN_USER: str = "admin"
+    KC_ADMIN_PASSWORD: str = "admin"
+
 
 settings = Settings()
 
