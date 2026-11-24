@@ -55,8 +55,10 @@ A = BASE + "/admin/realms"
 
 # 2. пересоздаём realm
 #    editUsernameAllowed — смена username через Account API/профиль
-#    verifyEmail + smtp — письма уходят в dev-mail заглушку (app:1025),
-#    ссылки видны на фронте через GET /api/dev/outbox
+#    verifyEmail=False — ВАЖНО: при True KC добавляет VERIFY_EMAIL в required
+#    actions всем с неподтверждённым email и блокирует логин до подтверждения;
+#    верификация запускается явно из профиля (send-verify-email), письмо ловит
+#    dev-mail заглушка (app:1025), ссылки видны на фронте через dev-outbox
 #    registrationAllowed — самостоятельная регистрация username+password
 code, _ = req(f"{A}/{REALM}", "DELETE", token=token)
 code, body = req(A, "POST", {"realm": REALM, "enabled": True,
@@ -64,7 +66,7 @@ code, body = req(A, "POST", {"realm": REALM, "enabled": True,
                              "loginWithEmailAllowed": True,
                              "editUsernameAllowed": True,
                              "resetPasswordAllowed": True,
-                             "verifyEmail": True,
+                             "verifyEmail": False,
                              "smtpServer": {"host": "app", "port": "1025",
                                             "from": "kc@merch-vibe.ru",
                                             "ssl": "", "starttls": "", "auth": ""},
@@ -111,11 +113,16 @@ print(f"   config: {code}")
 if code != 201: sys.exit(body)
 
 # 4b. user profile: разрешаем неуправляемые атрибуты (иначе атрибут phoneNumber
-# не сохранится на пользователе — профиль KC 26 их вырезает)
+# не сохранится на пользователе — профиль KC 26 их вырезает) + снимаем required
+# с email/firstName/lastName — иначе первый логин пользователя без них требует
+# VERIFY_PROFILE (форма "Update Account Info" перед входом)
 st, upc = req(f"{A}/{REALM}/users/profile", token=token)
 upc = json.loads(upc); upc["unmanagedAttributePolicy"] = "ADMIN_EDIT"
+for a in upc.get("attributes", []):
+    if a["name"] in ("email", "firstName", "lastName"):
+        a.pop("required", None)
 code, _ = req(f"{A}/{REALM}/users/profile", "PUT", upc, token=token)
-print(f"== 4b. unmanagedAttributePolicy=ADMIN_EDIT: {code} ==")
+print(f"== 4b. user profile (unmanaged=ADMIN_EDIT, required снят): {code} ==")
 
 # 5. привязываем как browser flow
 code, realm = req(f"{A}/{REALM}", token=token)
