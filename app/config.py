@@ -31,6 +31,10 @@ class Settings(BaseSettings):
     # --- mock ---
     MOCK_CALL_NUMBER: str = "88003330999"
 
+    # --- dev-почта вместо SMTP (только для проверки идеи, НЕ для прода) ---
+    DEV_MAIL: bool = True  # перехватывать письма Keycloak и класть ссылки в dev-outbox
+    DEV_MAIL_PORT: int = 1025  # SMTP-порт заглушки (Keycloak шлёт на app:1025)
+
     # --- синхронизация пользователей в Keycloak ---
     KC_SYNC: bool = True  # создавать пользователя в realm после verified
     KC_BASE_URL: str = "http://keycloak:8080"  # из docker-сети

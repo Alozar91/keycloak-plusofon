@@ -40,6 +40,14 @@ CREATE TABLE IF NOT EXISTS verifications (
     verified_at   REAL
 );
 CREATE INDEX IF NOT EXISTS idx_verifications_key ON verifications (key);
+CREATE TABLE IF NOT EXISTS outbox (
+    id         TEXT PRIMARY KEY,
+    to_addr    TEXT NOT NULL,
+    subject    TEXT NOT NULL,
+    link       TEXT,
+    body       TEXT,
+    created_at REAL NOT NULL
+);
 """
 
 
@@ -140,6 +148,52 @@ class Store:
             created_at=row["created_at"], expires_at=row["expires_at"],
             verified_at=row["verified_at"],
         )
+
+
+class Outbox:
+    """Dev-почтовый ящик: письма вместо SMTP (для проверки идеи, не для прода)."""
+
+    MAX = 50
+
+    def __init__(self, path: str):
+        self._conn = sqlite3.connect(path, check_same_thread=False)
+        self._conn.row_factory = sqlite3.Row
+        with self._conn:
+            self._conn.executescript(_SCHEMA)
+
+    def put(self, *, to_addr: str, subject: str, link: str | None, body: str) -> None:
+        with self._conn:
+            self._conn.execute(
+                "INSERT INTO outbox (id, to_addr, subject, link, body, created_at)"
+                " VALUES (?, ?, ?, ?, ?, ?)",
+                (uuid.uuid4().hex, to_addr, subject, link, body, time.time()),
+            )
+            self._conn.execute(
+                "DELETE FROM outbox WHERE id NOT IN"
+                " (SELECT id FROM outbox ORDER BY created_at DESC LIMIT ?)", (self.MAX,)
+            )
+
+    def latest(self, limit: int = 20) -> list[dict]:
+        rows = self._conn.execute(
+            "SELECT id, to_addr, subject, link, created_at FROM outbox"
+            " ORDER BY created_at DESC LIMIT ?", (limit,)
+        ).fetchall()
+        return [
+            {"id": r["id"], "to": r["to_addr"], "subject": r["subject"],
+             "link": r["link"], "created_at": r["created_at"]}
+            for r in rows
+        ]
+
+    def latest_by_addr(self, to_addr: str, limit: int = 5) -> list[dict]:
+        rows = self._conn.execute(
+            "SELECT id, to_addr, subject, link, created_at FROM outbox"
+            " WHERE to_addr = ? ORDER BY created_at DESC LIMIT ?", (to_addr, limit)
+        ).fetchall()
+        return [
+            {"id": r["id"], "to": r["to_addr"], "subject": r["subject"],
+             "link": r["link"], "created_at": r["created_at"]}
+            for r in rows
+        ]
 
 
 class RateLimiter:

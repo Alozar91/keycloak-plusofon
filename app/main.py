@@ -8,8 +8,10 @@ from fastapi import Depends, FastAPI, Header, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
+from pydantic import BaseModel
 
 from config import CORS_ORIGINS, WEBHOOK_IPS, settings
+from devmail import start_dev_mail_server
 from kcsync import sync_user_safe
 from plusofon import PlusofonClient, PlusofonError
 from schemas import (
@@ -19,12 +21,13 @@ from schemas import (
     StatusResponse,
     WebhookBody,
 )
-from store import RateLimiter, Store, new_key
+from store import Outbox, RateLimiter, Store, new_key
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
 log = logging.getLogger("flashcall")
 
 store = Store(settings.DB_PATH)
+outbox = Outbox(settings.DB_PATH)
 plusofon = PlusofonClient()
 rate_limiter = RateLimiter(settings.RATE_LIMIT_N, settings.RATE_LIMIT_WINDOW)
 
@@ -92,9 +95,15 @@ def ip_allowed(request: Request) -> bool:
     return False
 
 
+@app.on_event("startup")
+async def startup():
+    if settings.DEV_MAIL:
+        await start_dev_mail_server(outbox, port=settings.DEV_MAIL_PORT)
+
+
 @app.get("/api/health")
 async def health():
-    return {"status": "ok", "mock": settings.MOCK}
+    return {"status": "ok", "mock": settings.MOCK, "dev_mail": settings.DEV_MAIL}
 
 
 @app.post("/api/verify/start", response_model=StartResponse)
@@ -190,6 +199,21 @@ async def plusofon_webhook(request: Request):
         log.warning("webhook with unknown key=%s", key)
         raise HTTPException(status_code=404, detail="verification key not found")
 
+    # Харденинг: сверяем номер звонившего с номером верификации.
+    # Без этого спуфинг caller ID подтверждает чужой номер.
+    webhook_phone = next((fields[k] for k in ("phone", "msisdn", "cli", "ani") if k in fields), None)
+    if webhook_phone:
+        try:
+            webhook_phone_norm = normalize_phone(webhook_phone)
+        except HTTPException:
+            webhook_phone_norm = None
+        if webhook_phone_norm and webhook_phone_norm != v.phone:
+            log.warning("webhook phone mismatch: expected=%s got=%s (key=%s)",
+                        mask_phone(v.phone), mask_phone(webhook_phone_norm), key[:6])
+            raise HTTPException(status_code=403, detail="caller phone does not match verification")
+    else:
+        log.warning("webhook without phone field; accept by key only (key=%s)", key[:6])
+
     if store.status_of(v) != "pending":
         # уже verified/expired — подтверждаем получение, ничего не меняем
         return {"success": True, "duplicate": True}
@@ -224,6 +248,15 @@ async def simulate_call(req: SimulateRequest, _: None = Depends(require_api_key)
     log.info("simulated call: id=%s phone=%s", v.id, mask_phone(v.phone))
     await sync_user_safe(v.phone)
     return {"success": True, "verification_id": v.id, "status": "verified"}
+
+
+@app.get("/api/dev/outbox")
+async def dev_outbox(to: str | None = None, _: None = Depends(require_api_key)):
+    """[Dev-режим вместо SMTP] Последние письма из dev-outbox (ссылки подтверждения)."""
+    if not settings.DEV_MAIL:
+        raise HTTPException(status_code=403, detail="dev mail is disabled")
+    items = outbox.latest_by_addr(to, 5) if to else outbox.latest(20)
+    return {"items": items}
 
 
 # Отдаём собранный фронтенд (web/dist), если он есть — единый origin для теста.
